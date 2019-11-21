@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <queued-asynchronous-processing-strategy name="Queued_Asynchronous_Processing_Strategy" maxThreads="100" minThreads="16" threadTTL="10000" doc:name="Queued Asynchronous Processing Strategy"/>
+    <flow name="tech-muleFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/split-tuning" allowedMethods="POST" doc:name="HTTP"/>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <request-reply doc:name="Request-Reply">
+            <vm:outbound-endpoint exchange-pattern="one-way" path="split" doc:name="VM"/>
+            <vm:inbound-endpoint exchange-pattern="one-way" path="response" doc:name="VM"/>
+        </request-reply>
+        <set-payload value="#['final: ' + payload]" doc:name="Set Payload"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="tech-muleFlow1">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="split" doc:name="VM"/>
+        <object-to-string-transformer mimeType="application/java" doc:name="Object to String"/>
+        <set-variable variableName="MULE_REPLYTO_STOP" value="true" doc:name="Copy_of_Variable"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="4e1445a3-c3cf-4684-b5d5-c04873cb5686">
+            <dw:input-payload />
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload splitBy "\n"]]></dw:set-payload>
+        </dw:transform-message>
+        <collection-splitter doc:name="Collection Splitter"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="process" doc:name="process"/>
+
+    </flow>
+    <flow name="tech-muleFlow3" processingStrategy="Queued_Asynchronous_Processing_Strategy">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="process" doc:name="VM"/>
+        <component class="implementation.container.SimulateTime" doc:name="Java"/>
+        <collection-aggregator failOnTimeout="true" doc:name="Collection Aggregator"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="response" doc:name="VM"/>
+    </flow>
+    <flow name="tech-muleFlow2">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/split" allowedMethods="POST" doc:name="HTTP"/>
+        <object-to-string-transformer mimeType="application/java" doc:name="Object to String"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload splitBy "\n"]]></dw:set-payload>
+        </dw:transform-message>
+        <collection-splitter doc:name="Collection Splitter"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <component class="implementation.container.SimulateTime" doc:name="Copy_of_Java"/>
+        <collection-aggregator failOnTimeout="true" doc:name="Collection Aggregator"/>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <set-payload value="#[payload]" doc:name="Set Payload"/>
+    </flow>
+    <flow name="tech-muleFlow4">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/foreach" allowedMethods="POST" doc:name="HTTP"/>
+        <object-to-string-transformer mimeType="application/java" doc:name="Copy_of_Object to String"/>
+        <dw:transform-message doc:name="Copy_of_Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload splitBy "\n"]]></dw:set-payload>
+        </dw:transform-message>
+        <foreach doc:name="For Each">
+            <component class="implementation.container.SimulateTime" doc:name="Copy_of_Copy_of_Java"/>
+            <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+            <component class="implementation.container.SimulateTime" doc:name="Copy_of_Copy_of_Copy_of_Java"/>
+        </foreach>
+    </flow>
+    <flow name="tech-muleFlow5">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/split-vm" allowedMethods="POST" doc:name="HTTP"/>
+        <object-to-string-transformer mimeType="application/java" doc:name="Object to String"/>
+        <request-reply doc:name="Request-Reply">
+            <vm:outbound-endpoint exchange-pattern="one-way" path="vm-parallel" doc:name="VM"/>
+            <vm:inbound-endpoint exchange-pattern="one-way" path="queue-out" doc:name="VM"/>
+        </request-reply>
+        <set-payload value="#[payload]" doc:name="Set Payload"/>
+    </flow>
+    <flow name="tech-muleFlow6">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="vm-parallel" doc:name="VM"/>
+        <set-variable variableName="MULE_REPLYTO_STOP" value="true" doc:name="Variable"/>
+        <object-to-string-transformer mimeType="application/java" doc:name="Object to String"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="4e1445a3-c3cf-4684-b5d5-c04873cb5686">
+            <dw:input-payload/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload splitBy "\n"]]></dw:set-payload>
+        </dw:transform-message>
+        <collection-splitter doc:name="Collection Splitter"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="queue-collect" doc:name="VM"/>
+    </flow>
+    <flow name="tech-muleFlow7">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="queue-collect" doc:name="VM"/>
+        <component class="implementation.container.SimulateTime" doc:name="Java"/>
+        <collection-aggregator failOnTimeout="true" doc:name="Collection Aggregator"/>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <set-payload value="#[payload]" doc:name="Payload"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="queue-out" doc:name="VM"/>
+    </flow>
+</mule>
