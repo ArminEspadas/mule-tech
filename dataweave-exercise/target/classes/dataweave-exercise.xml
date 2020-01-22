@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+	<configuration doc:name="Configuration">
+     <expression-language>
+         <global-functions>
+             def newUser() {
+                 return ["name" : "mariano"]
+             }
+             def subString(value, start, end) {
+                 return org.apache.commons.lang3.StringUtils.substring(value, start, end); 
+             }
+         </global-functions>
+     </expression-language>
+ </configuration>
+	
+	<flow name="dataweave-exerciseFlow">
+		<dw:transform-message doc:name="Transform Message">
+			<dw:input-payload />
+			<dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+
+---
+{
+	value: (payload pluck $.'-category')[0] joinBy '-'
+}]]></dw:set-payload>
+		</dw:transform-message>
+		<dw:transform-message doc:name="Transform Message">
+			<dw:input-payload doc:sample="sample_data\empty.xml" />
+			<dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var jstring = "aguilar.espadas@gmail.com,armin.aguilar@ksquare.com,eaguilar@unitedfiregroup.com"
+%var hello =  ( jstring scan /([a-z.]*)@([a-z]*).([a-z]*)/ )  
+%var fog = [  "+1 (415) 229-2009",   "(647) 456-7008" ]
+---
+{
+	jk: hello map {
+		name: $[0],
+		company: $[2] match {
+			name: "ksquare" -> { "matches": true, value: name},
+  			name: "gmail" -> { "matches": false, value: name},
+  			"unitedfiregroup" -> false
+		},  
+		domain: ( $[3]) when ($[3] contains "com" ) otherwise null
+		
+	}, 
+	
+	phone: fog  map ($ match {
+		phone: /\+(\d+)\s\((\d+)\)\s(\d+\-\d+)/ -> { country: phone[2]}, 
+		phone: /\((\d+)\)\s(\d+\-\d+)/ -> { country: phone[2]}
+	}),
+	pop: "jj"
+}
+
+]]></dw:set-payload>
+		</dw:transform-message>
+	</flow>
+    <flow name="dataweave-exerciseFlow1">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data\json_2.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+typeOf payload.is_date ]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <sub-flow name="dataweave-exerciseSub_Flow">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data\json_1.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var pty= [{
+	"is_String": "hi",
+	"is_number": 34.5,
+	"is_date": |2019-04-03|,
+	"is_boolean": false
+}]
+%function formatting(input)
+input match {
+	:object -> input mapObject {
+	($$): setFormat ($)
+}, 
+	:array -> input map ( formatting ($)) , 
+	default -> false 
+}
+%function setFormat(input)
+input match {
+	:string ->  trim ( input ) ++ "." , 
+	:number -> ((floor ( input )) as :string {format: "#.00"}) as :number,
+	:date -> input as :date {format: "yyyy/MM/dd"} ,
+	:boolean -> "Yes" when input == true otherwise "No", 
+	default -> null
+}
+---
+{
+	pop: formatting(pty)
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+    <sub-flow name="dataweave-exerciseSub_Flow1">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload resource="classpath:set-format.dwl"/>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var myLibrary = readUrl("classpath://set-format.dwl")
+---
+{
+	pop: myLibrary.formatting(payload)
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data\json_7.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var myLibrary = readUrl("classpath://set-format.dwl")
+---
+ myLibrary.formatting(payload)]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+</mule>

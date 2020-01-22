@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <flow name="Case1: Problema">
+        <scatter-gather doc:name="Scatter-Gather">
+            <dw:transform-message doc:name="Productos">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var payload={
+	 "id": "1209  ", 
+	 "product_name": "atun", 
+	 "caducidad": |2019-04-03|,
+	 "costo": 23.5, 
+	 "disponible": true
+}
+
+---
+{
+	id: trim ( payload.id),
+	product_name: upper ( trim (payload.product_name)), 
+	caducidad: payload.caducidad as :date {format: "YYYY/MM/dd" }, 
+	costo: payload.costo as :string {format: "##.0000"} as :number,
+	disponible: "Yes" when payload.disponible == true otherwise "No"
+	
+}]]></dw:set-payload>
+            </dw:transform-message>
+            <dw:transform-message doc:name="Ganancias">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var payload={
+	 "id": " 1cd0ij90", 
+	 "ingresos": 10000, 
+	 "gastos": 12000,
+	 "fecha": |2019-04-03|
+}
+
+---
+{
+	id: trim ( payload.id),
+	ingresos: payload.ingresos as :string {format: "##.0000"} as :number,
+	gastos: payload.gastos as :string {format: "##.0000"} as :number,
+	ganancias: true when payload.gastos - payload.ingresos >0 otherwise false,
+	fecha: payload.caducidad as :date {format: "YYYY/MM/dd" }
+	
+}]]></dw:set-payload>
+            </dw:transform-message>
+        </scatter-gather>
+    </flow>
+    <flow name="Case2:Enum">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var catalogo= [{color:"rojo"}, {color:"verde"}, {color:"azul"}, {color:"blanco"}]
+---
+ catalogo.color map {
+		color_code: 1 when $.color == "rojo" otherwise 2 when $.color == "verde" otherwise 0
+}
+]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var catalogo= [{color:"rojo"}, {color:"verde"}, {color:"azul"}, {color:"blanco"}]
+---
+ catalogo.color map {
+ 	
+ 	color: $, 
+ 	color_code: $ match {
+ 	name: "rojo" -> {R: 255, G:0 , B: 0 },
+ 	default -> 0
+ }
+ }  ]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+</mule>

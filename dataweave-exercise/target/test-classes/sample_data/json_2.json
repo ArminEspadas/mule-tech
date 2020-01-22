@@ -1,0 +1,6 @@
+{
+  "is_String": "hi", 
+  "is_number": 34.5, 
+  "is_date": "2019-04-03" , 
+  "is_boolean": true
+}
